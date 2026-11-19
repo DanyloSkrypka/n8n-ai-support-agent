@@ -4,7 +4,9 @@ An n8n workflow that answers customer messages on its own. It reads a message fr
 
 ![Demo: a complaint from the website form gets a reply and goes to the manager](docs/demo.gif)
 
-▶️ **Full demo video (47 s):** [demo/demo_video.mp4](demo/demo_video.mp4). It shows the workflow, a customer complaint sent from a website form, the run in n8n, and 10 test messages arriving in the ticket table.
+▶️ **Full demo video (47 s).** It shows the workflow, a customer complaint sent from a website form, the run in n8n, and 10 test messages arriving in the ticket table.
+
+https://github.com/user-attachments/assets/45f6d8d3-4fed-46cb-8cb4-60ed6dbd7df7
 
 ![Workflow in the n8n editor](screenshots/01_workflow_overview.png)
 
