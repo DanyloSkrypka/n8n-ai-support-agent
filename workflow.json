@@ -1,0 +1,554 @@
+{
+  "id": "SupportAgent0001",
+  "name": "AI Support Agent - triage, FAQ reply, log, escalate",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## AI Support Agent (demo)\n**Customer message -> AI triage -> FAQ answer -> log -> manager alert**\n\n1. Webhook receives email / form / chat message\n2. Claude classifies: question, order, complaint, spam\n   (no `ANTHROPIC_API_KEY` -> free rules classifier)\n3. Reply is built only from the FAQ file\n4. Every ticket is appended to the table (CSV stub for Google Sheets)\n5. Complaints & unanswered questions -> manager",
+        "height": 210,
+        "width": 820,
+        "color": 6
+      },
+      "id": "798a3d62-be5c-5886-9ccc-113e96b8acc2",
+      "name": "Note: overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### AI classification\nKey comes from the `ANTHROPIC_API_KEY` env variable - never stored in the workflow.\nIf the key is missing or the API fails, the ticket goes to the **Rules classifier** (error output).",
+        "height": 110,
+        "width": 600,
+        "color": 4
+      },
+      "id": "fb5604f3-5853-5a18-8893-bbb4cfdfe28a",
+      "name": "Note: AI",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        960,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### Outputs (swap stubs for client tools)\n- **Append to tickets.csv** -> Google Sheets / Airtable / CRM\n- **Notify manager** -> Telegram / Slack / Gmail\n- **Respond to customer** -> reply via email / chat API",
+        "height": 110,
+        "width": 720,
+        "color": 5
+      },
+      "id": "a2012d25-6de5-50f4-ac7e-e06c8b49f38e",
+      "name": "Note: outputs",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "support-inbox",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "df847189-6143-5f9f-be3f-a640d0460493",
+      "name": "Incoming message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        320
+      ],
+      "webhookId": "86edce98-59cf-578f-8c65-245b7c7a63d5"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize any incoming payload (website form, email webhook, chat widget)\n// into one clean ticket. Accepts JSON or form-encoded bodies.\nconst items = $input.all();\nreturn items.map((item) => {\n  const src = (item.json.body && typeof item.json.body === 'object') ? item.json.body : item.json;\n  const pick = (...keys) => {\n    for (const k of keys) {\n      const v = src[k];\n      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();\n    }\n    return '';\n  };\n  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();\n  return {\n    json: {\n      ticket_id: 'T-' + Date.now().toString(36).toUpperCase() + '-' + rand,\n      received_at: new Date().toISOString(),\n      channel: pick('channel') || 'webhook',\n      name: pick('name', 'Name', 'from_name') || 'there',\n      email: pick('email', 'Email', 'from'),\n      subject: pick('subject', 'Subject'),\n      message: pick('message', 'Message', 'text', 'content').slice(0, 4000),\n      external_id: pick('id', 'external_id', 'test_id'),\n    },\n  };\n});\n"
+      },
+      "id": "3f404ab0-aa12-5cb5-aeb8-47c9b47b91c2",
+      "name": "Normalize message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $env.SUPPORT_KB_FILE || '/data/knowledge_base/faq.json' }}",
+        "options": {}
+      },
+      "id": "6c4d1342-0f38-57d0-b113-dff35c745d07",
+      "name": "Load knowledge base",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        400,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "fromJson",
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "id": "380fa520-6c25-51b3-bda8-56754598d86c",
+      "name": "Parse FAQ file",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        600,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "547b9e68-9f8c-52b9-a416-dd42cee21328",
+              "leftValue": "={{ !!$env.ANTHROPIC_API_KEY }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "3963b27c-6fae-5926-9df5-f238ad3e3090",
+      "name": "AI key set?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the Claude Messages API request. The API key is NOT here:\n// the HTTP node reads it from the ANTHROPIC_API_KEY environment variable.\nconst msg = $('Normalize message').first().json;\nconst kb = ((j) => j.data && j.data.faqs ? j.data : j)($('Parse FAQ file').first().json);\nconst faqList = kb.faqs.map((f) => `- ${f.id}: ${f.question}`).join('\\n');\n\nconst system = [\n  `You are the inbox triage assistant for ${kb.company}.`,\n  'Classify the customer message into exactly one category:',\n  '- question: the customer asks for information (shipping, returns, payment, tracking, sizes, warranty, contact).',\n  '- order: the customer wants to buy / place / change an order or asks for a quote.',\n  '- complaint: the customer is unhappy (damaged, late, wrong item, bad service) or demands a refund.',\n  '- spam: unsolicited marketing, SEO/crypto offers, phishing, gibberish.',\n  'If it is a question, pick the best matching FAQ id from this list, or null if none fits:',\n  faqList,\n  'Return only JSON with keys: category, confidence (0-1), faq_id, summary (max 15 words).',\n].join('\\n');\n\nconst request = {\n  model: $env.AI_MODEL || 'claude-opus-5-5',\n  max_tokens: 2048,\n  system,\n  output_config: {\n    effort: 'low',\n    format: {\n      type: 'json_schema',\n      schema: {\n        type: 'object',\n        additionalProperties: false,\n        required: ['category', 'confidence', 'faq_id', 'summary'],\n        properties: {\n          category: { type: 'string', enum: ['question', 'order', 'complaint', 'spam'] },\n          confidence: { type: 'number' },\n          faq_id: { type: ['string', 'null'] },\n          summary: { type: 'string' },\n        },\n      },\n    },\n  },\n  messages: [\n    { role: 'user', content: `Subject: ${msg.subject || '(none)'}\\nFrom: ${msg.name} <${msg.email}>\\n\\n${msg.message}` },\n  ],\n};\nreturn [{ json: { request } }];\n"
+      },
+      "id": "dea711fa-4e40-57f5-89bf-6a95b60cc779",
+      "name": "Build AI request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.AI_BASE_URL || 'https://api.anthropic.com') + '/v1/messages' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "9c7825d3-2412-5a6a-b26f-6697d9d1bdd2",
+      "name": "Claude classify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        190
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's JSON answer. Any problem -> throw, and the error output\n// routes the ticket to the rules-based classifier instead.\nconst res = $input.first().json;\nif (res.stop_reason === 'refusal') throw new Error('AI refused');\nconst textBlock = (res.content || []).find((b) => b.type === 'text');\nif (!textBlock) throw new Error('No text block in AI response');\nconst raw = textBlock.text.trim();\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nconst parsed = JSON.parse(raw.slice(start, end + 1));\nconst allowed = ['question', 'order', 'complaint', 'spam'];\nif (!allowed.includes(parsed.category)) throw new Error('Unknown category: ' + parsed.category);\nreturn [{\n  json: {\n    category: parsed.category,\n    confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0.5)),\n    faq_id: parsed.faq_id || null,\n    summary: parsed.summary || '',\n    classifier: 'ai:' + (res.model || 'claude'),\n  },\n}];\n"
+      },
+      "id": "e2eda493-fb4b-5130-8a20-4d765b8d95bf",
+      "name": "Parse AI answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        190
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rules-based classifier: used when no ANTHROPIC_API_KEY is set\n// or when the AI call fails. Deterministic, free, works offline (EN + DE).\nconst msg = $('Normalize message').first().json;\nconst text = `${msg.subject} ${msg.message}`.toLowerCase();\nconst count = (patterns) => patterns.reduce((n, re) => n + (re.test(text) ? 1 : 0), 0);\n\nconst spamHits = count([\n  /\\b(seo|backlinks?|guest post|rank #?1|first page of google)\\b/,\n  /\\b(crypto|bitcoin|forex|investment opportunity|double your)\\b/,\n  /\\b(casino|lottery|you (have )?won|winner|prize|claim your)\\b/,\n  /\\b(cheap followers|buy followers|click here|limited offer|act now)\\b/,\n  /(bit\\.ly|tinyurl|https?:\\/\\/\\S+\\.(ru|xyz|top)\\b)/,\n  /\\$\\d{3,}|\\b100% free\\b|!!!/,\n]) + ((text.match(/https?:\\/\\//g) || []).length >= 2 ? 1 : 0);\n\nconst complaintHits = count([\n  /\\b(complain|complaint|disappointed|unacceptable|terrible|awful|worst|horrible|furious|angry)\\b/,\n  /\\b(broken|damaged|defective|faulty|torn|wrong (item|size|colou?r)|missing)\\b/,\n  /(never arrived|still (haven'?t|hasn'?t|not) (received|arrived)|been waiting|weeks? late|no one (answers|replies))/,\n  /\\b(refund (me|now|immediately)|money back|chargeback|lawyer|scam)\\b/,\n  /\\b(beschwerde|kaputt|beschädigt|enttäuscht|unverschämt|frechheit)\\b/,\n]);\n\nconst orderHits = count([\n  /\\b(i('d| would) like to (order|buy|purchase)|i want to (order|buy|purchase)|place an order|can i order)\\b/,\n  /\\b(please send me|i('ll| will) take|add to my order|quote for|bulk order|wholesale)\\b/,\n  /\\b\\d+\\s?(x|pcs|pieces|units|pairs)\\b/,\n  /\\b(ich möchte .*(bestellen|kaufen)|bestellung aufgeben|ich bestelle)\\b/,\n]);\n\nconst questionHits = count([\n  /\\?/,\n  /\\b(how|what|when|where|which|do you|can i|is there|is it|are there)\\b/,\n  /\\b(wie|wann|wo|was|welche|gibt es|kann ich)\\b/,\n]);\n\nlet category = 'question';\nlet hits = questionHits;\nif (spamHits >= 2) { category = 'spam'; hits = spamHits; }\nelse if (complaintHits >= 1) { category = 'complaint'; hits = complaintHits; }\nelse if (orderHits >= 1) { category = 'order'; hits = orderHits; }\n\nconst confidence = hits === 0 ? 0.35 : Math.min(0.95, 0.55 + 0.15 * hits);\nreturn [{ json: { category, confidence: Number(confidence.toFixed(2)), faq_id: null, summary: '', classifier: 'rules' } }];\n"
+      },
+      "id": "64d21613-8321-5d05-a9f5-58c8f1b8a9e2",
+      "name": "Rules classifier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick the answer from the knowledge base and decide who handles the ticket.\n// Replies are built ONLY from the FAQ file - the AI never invents policies.\nconst msg = $('Normalize message').first().json;\nconst kb = ((j) => j.data && j.data.faqs ? j.data : j)($('Parse FAQ file').first().json);\nconst cls = $input.first().json;\nconst text = `${msg.subject} ${msg.message}`.toLowerCase();\n\n// FAQ match: the AI's pick if valid, otherwise the best keyword score.\nlet faq = kb.faqs.find((f) => f.id === cls.faq_id) || null;\nif (!faq) {\n  let best = 0;\n  for (const f of kb.faqs) {\n    const score = f.keywords.reduce((n, k) => n + (text.includes(k.toLowerCase()) ? k.split(' ').length : 0), 0);\n    if (score > best) { best = score; faq = f; }\n  }\n}\n\nconst hello = `Hi ${msg.name},\\n\\n`;\nconst bye = `\\n\\nBest regards,\\n${kb.signature}\\n\\n${kb.ai_disclosure}`;\nlet reply = '';\nlet escalate = false;\nlet reason = '';\nlet priority = 'normal';\nlet status = 'auto_replied';\n\nswitch (cls.category) {\n  case 'question':\n    if (faq && cls.confidence >= 0.5) {\n      reply = hello + faq.answer + bye;\n    } else {\n      reply = hello + kb.templates.unknown + bye;\n      escalate = true; reason = 'no_confident_answer'; status = 'handoff_to_human';\n    }\n    break;\n  case 'order':\n    reply = hello + kb.templates.order + bye;\n    status = 'order_logged';\n    break;\n  case 'complaint':\n    reply = hello + kb.templates.complaint + bye;\n    escalate = true; reason = 'complaint'; priority = 'high'; status = 'escalated';\n    break;\n  case 'spam':\n    status = 'ignored_spam';\n    break;\n}\n\nconst faqId = cls.category === 'question' && faq ? faq.id : '';\nreturn [{\n  json: {\n    ...msg,\n    category: cls.category,\n    confidence: cls.confidence,\n    classifier: cls.classifier,\n    faq_id: faqId,\n    reply,\n    escalate,\n    escalation_reason: reason,\n    priority,\n    status,\n    response: {\n      ticket_id: msg.ticket_id,\n      category: cls.category,\n      confidence: cls.confidence,\n      classifier: cls.classifier,\n      faq_id: faqId || null,\n      escalated: escalate,\n      status,\n      reply,\n    },\n  },\n}];\n"
+      },
+      "id": "b8a9d387-7a79-5a2d-8822-f7a33962ee64",
+      "name": "Build reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turn the ticket into one CSV line (the \"Google Sheets\" stub).\n// In production replace this + the next node with a Google Sheets \"Append row\" node.\nconst t = $input.first().json;\nconst cols = [t.ticket_id, t.received_at, t.channel, t.name, t.email, t.category, t.confidence,\n  t.classifier, t.faq_id, t.escalate ? 'yes' : 'no', t.status, t.message, t.reply];\nconst esc = (v) => '\"' + String(v ?? '').replace(/\\r?\\n/g, ' / ').replace(/\"/g, '\"\"') + '\"';\nconst line = cols.map(esc).join(',') + '\\n';\nreturn [{\n  json: t,\n  binary: { data: { data: Buffer.from(line, 'utf8').toString('base64'), mimeType: 'text/csv', fileName: 'tickets.csv', fileExtension: 'csv' } },\n}];\n"
+      },
+      "id": "bf9afe72-1b86-5fee-a275-a8b02387a901",
+      "name": "Format table row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $env.SUPPORT_DATA_DIR || '/data/output' }}/tickets.csv",
+        "dataPropertyName": "data",
+        "options": {
+          "append": true
+        }
+      },
+      "id": "bb05212a-3ed4-5e0a-9ed5-ac978002f439",
+      "name": "Append to tickets.csv",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d82b3f30-7892-5e7b-9206-b6aa191047a1",
+              "leftValue": "={{ $('Build reply').first().json.escalate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "e77cb252-bd1e-5412-8db7-9bcf067b3e0d",
+      "name": "Needs a human?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2200,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Manager notification (stub): one JSON line per escalated ticket.\n// In production swap the next node for Telegram / Slack / Gmail.\nconst t = $('Build reply').first().json;\nconst kb = ((j) => j.data && j.data.faqs ? j.data : j)($('Parse FAQ file').first().json);\nconst alert = {\n  sent_at: new Date().toISOString(),\n  to: kb.manager_contact,\n  priority: t.priority,\n  reason: t.escalation_reason,\n  ticket_id: t.ticket_id,\n  customer: `${t.name} <${t.email}>`,\n  subject: `[${t.priority.toUpperCase()}] ${t.category} from ${t.name}`,\n  message: t.message,\n};\nconst line = JSON.stringify(alert) + '\\n';\nreturn [{\n  json: alert,\n  binary: { data: { data: Buffer.from(line, 'utf8').toString('base64'), mimeType: 'application/json', fileName: 'manager_alerts.jsonl', fileExtension: 'jsonl' } },\n}];\n"
+      },
+      "id": "d58ec13a-1d16-5615-8f96-c3a2c63debb5",
+      "name": "Build manager alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $env.SUPPORT_DATA_DIR || '/data/output' }}/manager_alerts.jsonl",
+        "dataPropertyName": "data",
+        "options": {
+          "append": true
+        }
+      },
+      "id": "5f276ded-f52f-59b4-b619-ccc9083c9179",
+      "name": "Notify manager",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        2600,
+        190
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Build reply').first().json.response) }}",
+        "options": {}
+      },
+      "id": "5ccbaf50-89b0-5531-b2c5-3f43c6f09926",
+      "name": "Respond to customer",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2800,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Incoming message": {
+      "main": [
+        [
+          {
+            "node": "Normalize message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize message": {
+      "main": [
+        [
+          {
+            "node": "Load knowledge base",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load knowledge base": {
+      "main": [
+        [
+          {
+            "node": "Parse FAQ file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse FAQ file": {
+      "main": [
+        [
+          {
+            "node": "AI key set?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI key set?": {
+      "main": [
+        [
+          {
+            "node": "Build AI request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rules classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build AI request": {
+      "main": [
+        [
+          {
+            "node": "Claude classify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude classify": {
+      "main": [
+        [
+          {
+            "node": "Parse AI answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rules classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI answer": {
+      "main": [
+        [
+          {
+            "node": "Build reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rules classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rules classifier": {
+      "main": [
+        [
+          {
+            "node": "Build reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build reply": {
+      "main": [
+        [
+          {
+            "node": "Format table row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format table row": {
+      "main": [
+        [
+          {
+            "node": "Append to tickets.csv",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to tickets.csv": {
+      "main": [
+        [
+          {
+            "node": "Needs a human?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs a human?": {
+      "main": [
+        [
+          {
+            "node": "Build manager alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build manager alert": {
+      "main": [
+        [
+          {
+            "node": "Notify manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify manager": {
+      "main": [
+        [
+          {
+            "node": "Respond to customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

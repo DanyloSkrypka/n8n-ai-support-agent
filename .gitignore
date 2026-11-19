@@ -1,0 +1,11 @@
+node_modules/
+.n8n-local/
+.env
+data/
+*.csv
+*.jsonl
+*.log
+__pycache__/
+.pytest_cache/
+.DS_Store
+*.bak_*

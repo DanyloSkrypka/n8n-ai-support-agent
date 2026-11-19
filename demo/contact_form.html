@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Contact support</title>
+<style>
+  :root{--bg:#f4f5f7;--card:#fff;--ink:#16181d;--mute:#6b7280;--line:#e5e7eb;--accent:#ff6d5a}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+  .wrap{max-width:620px;margin:48px auto;padding:0 16px}
+  .brand{font-weight:700;letter-spacing:.02em;color:var(--mute);font-size:13px;text-transform:uppercase}
+  h1{margin:6px 0 20px;font-size:30px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  label{display:block;font-size:13px;font-weight:600;margin:14px 0 6px}
+  input,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fafafa}
+  textarea{min-height:110px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  button{margin-top:18px;background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 20px;font:600 15px inherit;cursor:pointer}
+  #out{margin-top:18px;display:none}
+  .tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;text-transform:uppercase;margin-right:6px}
+  .question{background:#e0f2fe;color:#075985}.order{background:#dcfce7;color:#166534}.complaint{background:#fee2e2;color:#991b1b}.spam{background:#e5e7eb;color:#374151}
+  .reply{white-space:pre-wrap;background:#fafafa;border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:10px;font-size:15px}
+  .meta{color:var(--mute);font-size:13px;margin-top:8px}
+</style></head><body><div class="wrap">
+<div class="brand">Northwind Outdoor · demo store</div>
+<h1>Contact support</h1>
+<form class="card" id="f">
+  <div class="row"><div><label for="name">Name</label><input id="name" value="Peter"></div>
+  <div><label for="email">Email</label><input id="email" value="peter@example.com"></div></div>
+  <label for="message">Message</label><textarea id="message" placeholder="How can we help?"></textarea>
+  <button type="submit" id="send">Send message</button>
+  <div id="out"></div>
+</form></div>
+<script>
+const WEBHOOK = 'http://127.0.0.1:5678/webhook/support-inbox';
+const val = (id) => document.getElementById(id).value;
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const out = document.getElementById('out'), btn = document.getElementById('send');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await fetch(WEBHOOK, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      channel:'form', name: val('name'), email: val('email'), message: val('message')})});
+    const j = await r.json();
+    out.innerHTML = `<span class="tag ${j.category}">${j.category}</span>` +
+      (j.escalated ? '<span class="tag complaint">sent to manager</span>' : '') +
+      `<div class="reply">${(j.reply || '(no reply – marked as spam)').replace(/</g,'&lt;')}</div>` +
+      `<div class="meta">Ticket ${j.ticket_id} · classifier: ${j.classifier} · confidence ${j.confidence}</div>`;
+  } catch (err) { out.textContent = 'Error: ' + err; }
+  out.style.display = 'block'; btn.disabled = false; btn.textContent = 'Send message';
+});
+</script></body></html>

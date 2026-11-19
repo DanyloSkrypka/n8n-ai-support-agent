@@ -1,0 +1,61 @@
+{
+  "company": "Northwind Outdoor (demo store)",
+  "signature": "Northwind Outdoor Support",
+  "manager_contact": "support-lead@northwind-demo.example",
+  "ai_disclosure": "This reply was prepared by our AI assistant. Reply \"human\" at any time and a team member will take over.",
+  "faqs": [
+    {
+      "id": "shipping_time",
+      "question": "How long does delivery take?",
+      "keywords": ["how long", "delivery time", "shipping time", "when will", "arrive", "dispatch", "lieferzeit", "wie lange"],
+      "answer": "Orders placed before 2 pm (CET) ship the same business day. Delivery takes 1-3 business days in Germany and 3-6 business days to the rest of the EU."
+    },
+    {
+      "id": "shipping_cost",
+      "question": "How much is shipping?",
+      "keywords": ["shipping cost", "shipping fee", "how much is shipping", "free shipping", "delivery cost", "versandkosten"],
+      "answer": "Shipping is free on orders over 50 EUR. Below that it is 4.90 EUR in Germany and 9.90 EUR to other EU countries."
+    },
+    {
+      "id": "returns",
+      "question": "What is your return policy?",
+      "keywords": ["return", "returns", "send back", "exchange", "refund policy", "rückgabe", "umtausch", "zurückschicken"],
+      "answer": "You can return unused items within 30 days of delivery. Start a return at northwind-demo.example/returns - the return label is free inside Germany and refunds are issued within 5 business days after we receive the parcel."
+    },
+    {
+      "id": "payment_methods",
+      "question": "Which payment methods do you accept?",
+      "keywords": ["payment", "pay with", "paypal", "credit card", "klarna", "invoice", "bezahlen", "zahlung", "apple pay"],
+      "answer": "We accept PayPal, Visa, Mastercard, Apple Pay, Google Pay and Klarna (pay in 30 days). Business customers can pay by invoice."
+    },
+    {
+      "id": "order_tracking",
+      "question": "Where is my order?",
+      "keywords": ["where is my order", "track", "tracking", "order status", "wo ist meine bestellung", "sendungsverfolgung", "status of my order"],
+      "answer": "You will find the tracking link in your shipping confirmation email. You can also check the live status at northwind-demo.example/track with your order number and email address."
+    },
+    {
+      "id": "sizing",
+      "question": "How do your sizes fit?",
+      "keywords": ["size", "sizing", "fit", "größe", "groesse", "measurements", "too small", "too big"],
+      "answer": "Our jackets and boots fit true to size. Each product page has a size chart with exact measurements; if you are between two sizes we recommend the larger one."
+    },
+    {
+      "id": "warranty",
+      "question": "Is there a warranty?",
+      "keywords": ["warranty", "guarantee", "garantie", "gewährleistung", "lifetime"],
+      "answer": "All products have a 2-year warranty. Tents and backpacks from our own brand come with a 5-year warranty on seams and zips."
+    },
+    {
+      "id": "contact_hours",
+      "question": "When can I reach a person?",
+      "keywords": ["opening hours", "phone", "call you", "talk to someone", "speak to", "erreichbar", "öffnungszeiten", "hotline"],
+      "answer": "Our team is available Monday to Friday, 9:00-17:00 (CET), at +49 30 000 000 (demo number) or by replying to this message."
+    }
+  ],
+  "templates": {
+    "order": "Thank you for your order request! We have logged it and a team member will confirm availability, total price and delivery date within 2 business hours. You can also order directly at northwind-demo.example - delivery takes 1-3 business days in Germany.",
+    "complaint": "We are really sorry about this experience. Your message has been escalated to our support lead with high priority, and a team member will contact you personally within 4 business hours to make it right.",
+    "unknown": "Thanks for reaching out! I could not find a confident answer in our help center, so I have passed your question to a team member who will reply within 1 business day."
+  }
+}
